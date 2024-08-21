@@ -52,4 +52,4 @@ workflows:
             - install-dependencies
       - test-aws-ls:
           requires:
-            - install-dependencies
+            - configure-aws
