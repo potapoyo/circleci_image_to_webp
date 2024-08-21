@@ -34,7 +34,7 @@ jobs:
             echo "[default]" > ~/.aws/config
             echo "region = $AWS_DEFAULT_REGION" >> ~/.aws/config
             which aws
-            aws s3 ls --endpoint-url https://s3.ap-northeast-1.wasabisys.com assets.potapoyo.com/
+            aws s3 ls --endpoint-url https://$AWS_ENDPOINT_URL $AWS_BUCKET_NAME/
   
   test-aws-ls:
     docker:
