@@ -17,6 +17,7 @@ jobs:
   configure-aws:
     docker:
       - image: cimg/python:3.8
+    resource_class: small
     steps:
       - checkout
       - run:
@@ -28,6 +29,18 @@ jobs:
             echo "aws_secret_access_key = $AWS_SECRET_ACCESS_KEY" >> ~/.aws/credentials
             echo "[default]" > ~/.aws/config
             echo "region = $AWS_DEFAULT_REGION" >> ~/.aws/config
+  
+  test-aws-ls:
+    docker:
+      - image: cimg/python:3.8
+    resource_class: small
+    steps:
+      - checkout
+      - run:
+          name: Test Aws Access
+          command: |
+            aws --profile wasabi-circleci s3 ls --endpoint-url https://s3.ap-northeast-1.wasabisys.com assets.potapoyo.com/
+
 
 workflows:
   version: 2
@@ -35,5 +48,8 @@ workflows:
     jobs:
       - install-dependencies
       - configure-aws:
+          requires:
+            - install-dependencies
+      - test-aws-ls:
           requires:
             - install-dependencies
