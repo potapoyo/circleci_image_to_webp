@@ -13,6 +13,19 @@ commands:
           name: List S3 Bucket
           command: |
             aws s3 ls --endpoint-url https://$AWS_ENDPOINT_URL $AWS_BUCKET_NAME/
+  
+  version_check_python:
+    steps:
+      - run:
+          command: |
+            python3 --version
+
+  install_dependencies:
+    steps:
+      - run:
+          name: Install Dependencies Packages.
+          command: |
+            sudo apt update
 
 jobs:
   check_s3_bucket:
@@ -20,7 +33,29 @@ jobs:
     steps:
       - awss3_list_bucket
 
+  python_test:
+    executor: default
+    steps:
+      - version_check_python
+      - install_dependencies
+  
 workflows:
   check_and_list:
     jobs:
       - check_s3_bucket
+  
+  python_test:
+    jobs:
+      - python_test
+
+#  pull_image:
+#    jobs:
+#      - 
+#  
+#  convert_webp:
+#    jobs:
+#      - 
+#
+#  upload_s3:
+#    jobs:
+#      - 
