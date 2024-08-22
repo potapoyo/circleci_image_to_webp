@@ -7,6 +7,18 @@ executors:
     resource_class: large
 
 commands:
+  configure-aws-credentials:
+    steps:
+      - run:
+          name: configure-aws-credentials
+          command: |
+            mkdir -p ~/.aws
+            echo "[default]" > ~/.aws/credentials
+            echo "aws_access_key_id = $AWS_ACCESS_KEY_ID" >> ~/.aws/credentials
+            echo "aws_secret_access_key = $AWS_SECRET_ACCESS_KEY" >> ~/.aws/credentials
+            echo "[default]" > ~/.aws/config
+            echo "region = $AWS_DEFAULT_REGION" >> ~/.aws/config
+
   format_s3_urls:
     steps:
       - run:
@@ -104,6 +116,7 @@ jobs:
     working_directory: ~/workdir
     executor: default
     steps:
+      - configure-aws-credentials
       - check_for_webp_files
       - install_dependencies
       # - create_working_directory
