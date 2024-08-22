@@ -51,6 +51,7 @@ commands:
       - run:
           name: Download Files from S3
           command: |
+            pwd
             aws s3 sync --endpoint-url https://$AWS_ENDPOINT_URL s3://$AWS_BUCKET_NAME/ ~/workdir --exclude "*" --include "*.jpg" --include "*.png"
 
   convert_images_to_webp:
