@@ -13,7 +13,7 @@ commands:
           name: List S3 Bucket
           command: |
             aws s3 ls --endpoint-url https://$AWS_ENDPOINT_URL $AWS_BUCKET_NAME/
-  
+
   version_check_python:
     steps:
       - run:
@@ -26,6 +26,43 @@ commands:
           name: Install Dependencies Packages.
           command: |
             sudo apt update
+            sudo apt install -y webp
+
+  create_working_directory:
+    steps:
+      - run:
+          name: Create Working Directory
+          command: |
+            mkdir -p ~/workdir
+
+  download_files_from_s3:
+    steps:
+      - run:
+          name: Download Files from S3
+          command: |
+            aws s3 sync --endpoint-url https://$AWS_ENDPOINT_URL s3://$AWS_BUCKET_NAME/ ~/workdir --exclude "*" --include "*.jpg" --include "*.png"
+
+  convert_images_to_webp:
+    steps:
+      - run:
+          name: Convert Images to WebP
+          command: |
+            if [ -d ~/workdir ] && ([ "$(ls -A ~/workdir/*.jpg 2>/dev/null)" ] || [ "$(ls -A ~/workdir/*.png 2>/dev/null)" ]); then
+              for img in ~/workdir/*.{jpg,png}; do
+                [ -e "$img" ] || continue
+                cwebp -resize 1200 0 "$img" -o ~/workdir/$(basename "$img" | sed 's/\.[^.]*$//').webp
+              done
+            else
+              echo "No image files found in ~/workdir."
+              exit 1
+            fi
+
+  upload_images_to_s3:
+    steps:
+      - run:
+          name: Upload Images to S3
+          command: |
+            aws s3 sync --endpoint-url https://$AWS_ENDPOINT_URL ~/workdir s3://$AWS_BUCKET_NAME/ --exclude "*" --include "*.webp"
 
 jobs:
   check_s3_bucket:
@@ -38,24 +75,18 @@ jobs:
     steps:
       - version_check_python
       - install_dependencies
-  
+
+  process_images:
+    executor: default
+    steps:
+      - install_dependencies
+      - create_working_directory
+      - download_files_from_s3
+      - convert_images_to_webp
+      - upload_images_to_s3
+
 workflows:
   check_and_list:
     jobs:
-      - check_s3_bucket
-  
-  python_test:
-    jobs:
-      - python_test
-
-#  pull_image:
-#    jobs:
-#      - 
-#  
-#  convert_webp:
-#    jobs:
-#      - 
-#
-#  upload_s3:
-#    jobs:
-#      - 
+      # - check_s3_bucket
+      - process_images
