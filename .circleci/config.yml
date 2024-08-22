@@ -1,0 +1,117 @@
+version: 2.1
+
+executors:
+  default:
+    docker:
+      - image: "cimg/aws:2024.03.1"
+    resource_class: large
+
+commands:
+  format_s3_urls:
+    steps:
+      - run:
+          name: Format S3 URLs
+          command: |
+            aws s3 ls --recursive --endpoint-url https://$AWS_ENDPOINT_URL $AWS_BUCKET_NAME/ > s3_output.txt
+            declare -A file_dict
+            while read -r line; do
+              if [[ $line =~ ([^[:space:]]+\.[^[:space:]]+)$ ]]; then
+                filename="${BASH_REMATCH[1]}"
+                extension="${filename##*.}"
+                file_dict[$extension]+="${filename}\n"
+              fi
+            done < s3_output.txt
+            for ext in "${!file_dict[@]}"; do
+              printf "${file_dict[$ext]}"
+            done
+
+  version_check_python:
+    steps:
+      - run:
+          command: |
+            python3 --version
+
+  install_dependencies:
+    steps:
+      - run:
+          name: Install Dependencies Packages.
+          command: |
+            sudo apt update
+            sudo apt install -y webp
+
+  create_working_directory:
+    steps:
+      - run:
+          name: Create Working Directory
+          command: |
+            mkdir -p ~/workdir
+
+  download_files_from_s3:
+    steps:
+      - run:
+          name: Download Files from S3
+          command: |
+            aws s3 sync --endpoint-url https://$AWS_ENDPOINT_URL s3://$AWS_BUCKET_NAME/ ~/workdir --exclude "*" --include "*.jpg" --include "*.png"
+
+  convert_images_to_webp:
+    steps:
+      - run:
+          name: Convert Images to WebP
+          command: |
+            if [ -d ~/workdir ] && ([ "$(ls -A ~/workdir/*.jpg 2>/dev/null)" ] || [ "$(ls -A ~/workdir/*.png 2>/dev/null)" ]); then
+              for img in ~/workdir/*.{jpg,png}; do
+                [ -e "$img" ] || continue
+                cwebp -resize 1024 0 "$img" -o ~/workdir/$(basename "$img" | sed 's/\.[^.]*$//').webp
+              done
+            else
+              echo "No image files found in ~/workdir."
+              exit 1
+            fi
+
+  upload_images_to_s3:
+    steps:
+      - run:
+          name: Upload Images to S3
+          command: |
+            aws s3 sync --endpoint-url https://$AWS_ENDPOINT_URL ~/workdir s3://$AWS_BUCKET_NAME/ --exclude "*" --include "*.webp"
+
+  check_for_webp_files:
+    steps:
+      - run:
+          name: Check for .webp files in S3
+          command: |
+            if aws s3 ls --recursive --endpoint-url https://$AWS_ENDPOINT_URL $AWS_BUCKET_NAME/ | grep '\.webp$'; then
+              echo "Error: .webp files found in the bucket"
+              exit 1
+            else
+              echo "No .webp files found. Proceeding..."
+            fi
+
+jobs:
+  check_s3_bucket:
+    executor: default
+    steps:
+      - format_s3_urls
+
+  python_test:
+    executor: default
+    steps:
+      - version_check_python
+      - install_dependencies
+
+  process_images:
+    executor: default
+    steps:
+      - check_for_webp_files
+      - install_dependencies
+      - create_working_directory
+      - download_files_from_s3
+      - convert_images_to_webp
+      - upload_images_to_s3
+      - format_s3_urls
+
+workflows:
+  check_and_list:
+    jobs:
+      # - check_s3_bucket
+      - process_images
