@@ -18,7 +18,7 @@ commands:
               if [[ $line =~ ([^[:space:]]+\.[^[:space:]]+)$ ]]; then
                 filename="${BASH_REMATCH[1]}"
                 extension="${filename##*.}"
-                file_dict[$extension]+="/${filename}\n"
+                file_dict[$extension]+="${filename}\n"
               fi
             done < s3_output.txt
             for ext in "${!file_dict[@]}"; do
@@ -75,6 +75,18 @@ commands:
           command: |
             aws s3 sync --endpoint-url https://$AWS_ENDPOINT_URL ~/workdir s3://$AWS_BUCKET_NAME/ --exclude "*" --include "*.webp"
 
+  check_for_webp_files:
+    steps:
+      - run:
+          name: Check for .webp files in S3
+          command: |
+            if aws s3 ls --recursive --endpoint-url https://$AWS_ENDPOINT_URL $AWS_BUCKET_NAME/ | grep '\.webp$'; then
+              echo "Error: .webp files found in the bucket"
+              exit 1
+            else
+              echo "No .webp files found. Proceeding..."
+            fi
+
 jobs:
   check_s3_bucket:
     executor: default
@@ -90,14 +102,16 @@ jobs:
   process_images:
     executor: default
     steps:
+      - check_for_webp_files
       - install_dependencies
       - create_working_directory
       - download_files_from_s3
       - convert_images_to_webp
       - upload_images_to_s3
+      - format_s3_urls
 
 workflows:
   check_and_list:
     jobs:
-      - check_s3_bucket
+      # - check_s3_bucket
       - process_images
