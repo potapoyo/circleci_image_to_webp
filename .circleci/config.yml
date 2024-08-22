@@ -7,12 +7,23 @@ executors:
     resource_class: small
 
 commands:
-  awss3_list_bucket:
+  format_s3_urls:
     steps:
       - run:
-          name: List S3 Bucket
+          name: Format S3 URLs
           command: |
-            aws s3 ls --endpoint-url https://$AWS_ENDPOINT_URL $AWS_BUCKET_NAME/
+            aws s3 ls --recursive --endpoint-url https://$AWS_ENDPOINT_URL $AWS_BUCKET_NAME/ > s3_output.txt
+            declare -A file_dict
+            while read -r line; do
+              if [[ $line =~ ([^[:space:]]+\.[^[:space:]]+)$ ]]; then
+                filename="${BASH_REMATCH[1]}"
+                extension="${filename##*.}"
+                file_dict[$extension]+="/${filename}\n"
+              fi
+            done < s3_output.txt
+            for ext in "${!file_dict[@]}"; do
+              printf "${file_dict[$ext]}"
+            done
 
   version_check_python:
     steps:
@@ -68,7 +79,7 @@ jobs:
   check_s3_bucket:
     executor: default
     steps:
-      - awss3_list_bucket
+      - format_s3_urls
 
   python_test:
     executor: default
@@ -88,5 +99,5 @@ jobs:
 workflows:
   check_and_list:
     jobs:
-      # - check_s3_bucket
+      - check_s3_bucket
       - process_images
