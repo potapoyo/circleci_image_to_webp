@@ -19,6 +19,13 @@ commands:
             echo "[default]" > ~/.aws/config
             echo "region = $AWS_DEFAULT_REGION" >> ~/.aws/config
 
+  awss3_list_bucket:
+    steps:
+      - run:
+          name: List S3 Bucket
+          command: |
+            aws s3 ls --endpoint-url https://$AWS_ENDPOINT_URL $AWS_BUCKET_NAME/
+
   format_s3_urls:
     steps:
       - run:
@@ -104,7 +111,7 @@ jobs:
   check_s3_bucket:
     executor: default
     steps:
-      - format_s3_urls
+      - awss3_list_bucket
 
   python_test:
     executor: default
@@ -128,5 +135,5 @@ jobs:
 workflows:
   check_and_list:
     jobs:
-      # - check_s3_bucket
-      - process_images
+      - check_s3_bucket
+      # - process_images
