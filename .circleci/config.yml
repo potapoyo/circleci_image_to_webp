@@ -7,25 +7,6 @@ executors:
     resource_class: large
 
 commands:
-  configure-aws-credentials:
-    steps:
-      - run:
-          name: configure-aws-credentials
-          command: |
-            mkdir -p ~/.aws
-            echo "[default]" > ~/.aws/credentials
-            echo "aws_access_key_id = $AWS_ACCESS_KEY_ID" >> ~/.aws/credentials
-            echo "aws_secret_access_key = $AWS_SECRET_ACCESS_KEY" >> ~/.aws/credentials
-            echo "[default]" > ~/.aws/config
-            echo "region = $AWS_DEFAULT_REGION" >> ~/.aws/config
-
-  awss3_list_bucket:
-    steps:
-      - run:
-          name: List S3 Bucket
-          command: |
-            aws s3 ls --endpoint-url https://$AWS_ENDPOINT_URL $AWS_BUCKET_NAME/
-
   format_s3_urls:
     steps:
       - run:
@@ -70,7 +51,6 @@ commands:
       - run:
           name: Download Files from S3
           command: |
-            pwd
             aws s3 sync --endpoint-url https://$AWS_ENDPOINT_URL s3://$AWS_BUCKET_NAME/ ~/workdir --exclude "*" --include "*.jpg" --include "*.png"
 
   convert_images_to_webp:
@@ -111,7 +91,7 @@ jobs:
   check_s3_bucket:
     executor: default
     steps:
-      - awss3_list_bucket
+      - format_s3_urls
 
   python_test:
     executor: default
@@ -120,13 +100,11 @@ jobs:
       - install_dependencies
 
   process_images:
-    working_directory: ~/workdir
     executor: default
     steps:
-      - configure-aws-credentials
       - check_for_webp_files
       - install_dependencies
-      # - create_working_directory
+      - create_working_directory
       - download_files_from_s3
       - convert_images_to_webp
       - upload_images_to_s3
@@ -135,5 +113,5 @@ jobs:
 workflows:
   check_and_list:
     jobs:
-      - check_s3_bucket
-      # - process_images
+      # - check_s3_bucket
+      - process_images
